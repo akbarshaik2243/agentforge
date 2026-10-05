@@ -23,6 +23,13 @@ from .guardrails import BlockedContent, mask_pii, screen_prompt
 mcp = FastMCP("agentforge")
 _tokens = TokenStore()
 
+# Tiny in-memory docs for the template. Replace with your real
+# document store; the auth and guardrail behavior stays the same.
+_DOCS = {
+    "refund": "Our refund policy allows returns within 30 days of purchase.",
+    "support": "Support hours are Monday to Friday, 9 AM to 5 PM Central.",
+}
+
 
 def _user(auth_token: str | None, scope: str):
     """Authenticate and authorize in one call. Raises AuthError on failure."""
@@ -36,9 +43,12 @@ def search_docs(query: str, auth_token: str) -> str:
     """Search the internal docs. Requires the tools.read scope."""
     user = _user(auth_token, "tools.read")
     screen_prompt(query)
-    # In your server, query the real docs here. The guardrail stays
-    # on the output path no matter where the text came from.
-    result = f"Docs for '{query}' (requested by {user.id}): contact jane.doe@example.com for access."
+    low = query.lower()
+    for key, doc in _DOCS.items():
+        if key in low:
+            return mask_pii(f"{doc} (requested by {user.id})")
+    # Fallback path keeps the PII-masking behavior visible.
+    result = f"No docs matched '{query}' (requested by {user.id}): contact jane.doe@example.com for access."
     return mask_pii(result)
 
 
