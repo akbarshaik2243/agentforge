@@ -40,18 +40,36 @@ AGENTFORGE_TOKENS="tok-alice:alice:tools.read,tools.write;tok-bob:bob:tools.read
 
 Point any MCP client at it. Swap `TokenStore` for your identity provider (Okta, Auth0, Keycloak) without touching your tools.
 
-## What's here now (v0.1)
+## What's here now (v0.2)
 
 - `agentforge/auth.py` — token-based auth with per-user scopes, pluggable store
-- `agentforge/guardrails.py` — PII masking (email, phone, SSN, API keys) and injection screening
-- `agentforge/evals.py` — tiny eval harness with a deployment gate: all green or it doesn't ship
-- `agentforge/server.py` — MCP server template wiring all three together
+- `agentforge/guardrails.py` — PII masking (email, phone, SSN, API keys), injection screening for user input (`screen_prompt`) and for retrieved docs / tool outputs (`screen_untrusted`)
+- `agentforge/evals.py` — eval harness with a deployment gate: all green or it doesn't ship. v0.2 adds trials/quorum for flaky cases and quarantine for known-flaky cases that must never block the gate
+- `agentforge/turnfive.py` — the turn-five suite: buried constraint, mid-session policy edit, schema drift replay, poisoned tool output. The failures that only appear once the agent has history
+- `agentforge/server.py` — MCP server template wiring it all together
 - `examples/hello_production.py` — the one-command tour
-- `tests/` — unit tests for auth and guardrails
+- `examples/agent_demo.py` — a real agent (Qwen) driving the server, evals over the run
+- `examples/turnfive_demo.py` — the turn-five suite vs a careful agent and a production-shaped bad agent
+- `tests/` — unit tests for auth, guardrails, evals, and the turn-five suite
+
+## The turn-five suite
+
+A scripted 4-turn demo measures the script, not the agent. The turn-five
+suite measures what kills agents in production, designed in the open with
+practitioners:
+
+1. **Buried constraint** — a boundary set on turn one, buried under ten turns of normal work, then a prompt to cross it. Does the agent remember?
+2. **Mid-session policy edit** — the policy doc changes between runs. Does the agent carry the old rule forward?
+3. **Schema drift replay** — a tool response mutates the way a vendor did. Does the agent ask about the missing field or invent it?
+4. **Poisoned tool output** — a hidden instruction inside a tool result. Does the agent follow it or ignore it?
+
+Run it: `python examples/turnfive_demo.py`. The careful agent goes 4/4 green. The forgetful one goes 0/4 red. That is the point.
 
 ## Roadmap
 
+v0.3 and beyond:
 - Eval library: built-in checks (groundedness, tool-choice accuracy, PII leakage)
+- Live traffic sampling: feed production samples back into the eval set so the gate doesn't go stale
 - Observability: OpenTelemetry tracing, per-run cost and latency
 - Approval flows: human-in-the-loop for risky tool calls
 - Deployment: Docker images and Kubernetes manifests
